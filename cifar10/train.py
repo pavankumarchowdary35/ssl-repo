@@ -25,6 +25,7 @@ from utils_ssl import loss_soft_reg_ep
 from ssl_networks import CNN as MT_Net
 from PreResNet import PreactResNet18_WNdrop
 from wideArchitectures import WRN28_5_wn
+import models_teacher.wideresnet as wrn_models
 
 def parse_args():
     parser = argparse.ArgumentParser(description='command for the first train')
@@ -103,8 +104,22 @@ def save_checkpoint(state, filename='checkpoint.pth.tar'):
     torch.save(state, filename)
 
 
+def create_teacher_model():
+        
+    print("==> creating WideResNet" + str(28) + '-' + str(5))
+    model = wrn_models.WideResNet(first_stride =  1,
+                                            num_classes  = 10,
+                                            depth        = 28,
+                                            widen_factor = 5,
+                                            activation   = 'relu')
+
+    return model
+        
+
 def main(args):
     best_ac = 0.0
+
+    model_teacher = create_teacher_model()
 
     #####################
     # Initializing seeds and preparing GPU
@@ -294,7 +309,7 @@ def main(args):
         loss_per_epoch_train, \
         top_5_train_ac, \
         top1_train_ac, \
-        train_time, current_results = train_CrossEntropy(args, model, device, \
+        train_time, current_results = train_CrossEntropy(args, model,model_teacher, device, \
                                         train_loader, optimizer, \
                                         epoch, unlabeled_indexes, prev_results)
         
