@@ -218,7 +218,7 @@ def loss_mixup_reg_ep(preds, labels, targets_a, targets_b, device, lam, args):
 
 ##############################################################################
 
-def train_CrossEntropy(args, model, device, train_loader, optimizer, epoch, unlabeled_indexes, prev_results=None ):
+def train_CrossEntropy(args, model,model_teacher, device, train_loader, optimizer, epoch, unlabeled_indexes, prev_results=None ):
     batch_time = AverageMeter()
     train_loss = AverageMeter()
     top1 = AverageMeter()
@@ -234,6 +234,7 @@ def train_CrossEntropy(args, model, device, train_loader, optimizer, epoch, unla
     end = time.time()
 
     results = np.zeros((len(train_loader.dataset), args.num_classes), dtype=np.float32)
+    results_teacher = np.zeros((len(train_loader.dataset), args.num_classes), dtype=np.float32)
 
     if args.loss_term == "Reg_ep":
         print("Training with cross entropy and regularization for soft labels and for predicting different classes (Reg_ep)")
@@ -340,11 +341,29 @@ def train_CrossEntropy(args, model, device, train_loader, optimizer, epoch, unla
             prob_mixup, loss_reg = loss_mixup_reg_ep(outputs, labels, targets_a, targets_b, device, lam, args)
             outputs = output_x1
 
+
+        if epoch == 1:
+            # On the first epoch, make predictions with model_teacher
+            print('came inside the loop')
+            with torch.no_grad():
+                checkpoint = torch.load('wrn-28-5_algo-fixmatch_lrsche-Cosine_numlabels-4000_seed-0/best.pth.tar')
+                model_teacher.load_state_dict(checkpoint['state_dict'])
+                # model_teacher.load_state_dict(torch.load('wrn-28-5_algo-fixmatch_lrsche-Cosine_numlabels-4000_seed-0/best.pth.tar'))
+                model_teacher.eval()
+                model_teacher.to(device)
+                if args.DApseudolab == "False":
+                    images_pslab = img_pslab.to(device)
+                    outputs_new = model_teacher(images_pslab)
+                else:
+                    images = imgs.to(device)
+                    outputs_new = model_teacher(images)
+                prob_new = torch.softmax(outputs_new, dim=1)
+
+            results_teacher[index.detach().numpy().tolist()] = prob_new.cpu().detach().numpy().tolist()
+            print('results_teacher was updated with teacher predictions')
         
         results[index.detach().numpy().tolist()] = prob.cpu().detach().numpy().tolist() 
-        
-
-        
+                
         
         loss=loss_reg + loss_trades
         
@@ -375,12 +394,11 @@ def train_CrossEntropy(args, model, device, train_loader, optimizer, epoch, unla
             optimizer.update_swa()        
 
     # update soft labels
-            
-    if args.dataset_type == 'ssl':
-      train_loader.dataset.update_labels(results, unlabeled_indexes)  #,prev_results
-
-    else:
-        train_loader.dataset.update_labels(results, unlabeled_indexes)
+    if epoch == 1:
+        if args.dataset_type == 'ssl':
+            train_loader.dataset.update_labels(results_teacher, unlabeled_indexes)  #,prev_results
+        else:
+            train_loader.dataset.update_labels(results_teacher, unlabeled_indexes)
 
 
     # prev_results.append(results)
