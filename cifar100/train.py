@@ -25,7 +25,7 @@ from wideArchitectures import WRN28_2_wn
 def parse_args():
     parser = argparse.ArgumentParser(description='command for the first train')
     parser.add_argument('--lr', type=float, default=0.1, help='Learning rate')
-    parser.add_argument('--batch_size', type=int, default=100, help='Number of images in each mini-batch')
+    parser.add_argument('--batch_size', type=int, default=250, help='Number of images in each mini-batch')
     parser.add_argument('--test_batch_size', type=int, default=100, help='Number of images in each mini-batch')
     parser.add_argument('--epoch', type=int, default=150, help='Training epoches')
     parser.add_argument('--wd', type=float, default=1e-4, help='Weight decay')
@@ -52,7 +52,7 @@ def parse_args():
     parser.add_argument('--swa_start', type=int, default=350, help='Start SWA')
     parser.add_argument('--swa_freq', type=float, default=5, help='Frequency')
     parser.add_argument('--swa_lr', type=float, default=0.001, help='LR')
-    parser.add_argument('--labeled_batch_size', default=16, type=int, metavar='N', help="Labeled examples per minibatch (default: no constrain)")
+    parser.add_argument('--labeled_batch_size', default=125, type=int, metavar='N', help="Labeled examples per minibatch (default: no constrain)")
     parser.add_argument('--validation_exp', type=str, default='False', help='Ignore the testing set during training and evaluation (it gets 5k samples from the training data to do the validation step)')
     parser.add_argument('--val_samples', type=int, default=5000, help='Number of samples to be kept for validation (from the training set))')
     parser.add_argument('--DA', type=str, default='standard', help='Chose the type of DA')
