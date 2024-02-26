@@ -218,7 +218,7 @@ def loss_mixup_reg_ep(preds, labels, targets_a, targets_b, device, lam, args):
 
 ##############################################################################
 
-def train_CrossEntropy(args, model,model_teacher, device, train_loader, optimizer, epoch, unlabeled_indexes, prev_results=None ):
+def train_CrossEntropy(args, model,model_teacher, device, train_loader, optimizer, epoch, unlabeled_indexes, prev_results=None):
     batch_time = AverageMeter()
     train_loss = AverageMeter()
     top1 = AverageMeter()
@@ -346,7 +346,7 @@ def train_CrossEntropy(args, model,model_teacher, device, train_loader, optimize
             # On the first epoch, make predictions with model_teacher
             print('came inside the loop')
             with torch.no_grad():
-                checkpoint = torch.load('wrn-28-5_algo-fixmatch_lrsche-Cosine_numlabels-4000_seed-0/best.pth.tar')
+                checkpoint = torch.load('checkpoint_paper/best.pth.tar')
                 model_teacher.load_state_dict(checkpoint['state_dict'])
                 # model_teacher.load_state_dict(torch.load('wrn-28-5_algo-fixmatch_lrsche-Cosine_numlabels-4000_seed-0/best.pth.tar'))
                 model_teacher.eval()
@@ -388,6 +388,14 @@ def train_CrossEntropy(args, model,model_teacher, device, train_loader, optimize
                        100. * counter / len(train_loader), loss.item(),
                        prec1, optimizer.param_groups[0]['lr']))
         counter = counter + 1
+        
+        
+    if args.swa == 'True':
+        if epoch > args.swa_start and epoch%args.swa_freq == 0 :
+            swa_optimizer.update_swa()
+            
+        if epoch >= args.swa_start:
+            swa_optimizer.bn_update(train_loader, model, device)    
 
     if args.swa == 'True':
         if epoch > args.swa_start and epoch%args.swa_freq == 0 :
@@ -398,7 +406,7 @@ def train_CrossEntropy(args, model,model_teacher, device, train_loader, optimize
         if args.dataset_type == 'ssl':
             train_loader.dataset.update_labels(results_teacher, unlabeled_indexes)  #,prev_results
         else:
-            train_loader.dataset.update_labels(results_teacher, unlabeled_indexes)
+            train_loader.dataset.update_labels(results_teacher, unlabeled_indexes)      ### if the training is warmup, then the unlabeled indexes will ne zero. so even if we update it is not a problem
 
 
     # prev_results.append(results)

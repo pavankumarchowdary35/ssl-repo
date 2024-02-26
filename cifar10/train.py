@@ -30,7 +30,7 @@ import models_teacher.wideresnet as wrn_models
 def parse_args():
     parser = argparse.ArgumentParser(description='command for the first train')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
-    parser.add_argument('--batch_size', type=int, default=100, help='Number of images in each mini-batch')
+    parser.add_argument('--batch_size', type=int, default=200, help='Number of images in each mini-batch')
     parser.add_argument('--test_batch_size', type=int, default=100, help='Number of images in each mini-batch')
     parser.add_argument('--epoch', type=int, default=150, help='Training epoches')
     parser.add_argument('--wd', type=float, default=1e-4, help='Weight decay')
@@ -54,10 +54,10 @@ def parse_args():
     parser.add_argument('--cuda_dev', type=int, default=0, help='Set to 1 to choose the second gpu')
     parser.add_argument('--dataset', type=str, default='cifar10', help='Dataset name')
     parser.add_argument('--swa', type=str, default='False', help='Apply SWA')
-    parser.add_argument('--swa_start', type=int, default=100, help='Start SWA')
+    parser.add_argument('--swa_start', type=int, default=75, help='Start SWA')
     parser.add_argument('--swa_freq', type=float, default=5, help='Frequency')
-    parser.add_argument('--swa_lr', type=float, default=-0.01, help='LR')
-    parser.add_argument('--labeled_batch_size', default=50, type=int, metavar='N', help="Labeled examples per minibatch (default: no constrain)")
+    parser.add_argument('--swa_lr', type=float, default=0.001, help='LR')
+    parser.add_argument('--labeled_batch_size', default=100, type=int, metavar='N', help="Labeled examples per minibatch (default: no constrain)")
     parser.add_argument('--validation_exp', type=str, default='False', help='Ignore the testing set during training and evaluation (it gets 5k samples from the training data to do the validation step)')
     parser.add_argument('--val_samples', type=int, default=0, help='Number of samples to be kept for validation (from the training set))')
     parser.add_argument('--DA', type=str, default='standard', help='Chose the type of DA')
@@ -78,10 +78,10 @@ def data_config(args, transform_train, transform_test):
     if args.labeled_batch_size > 0 and not args.dataset_type == 'ssl_warmUp':
         print("Training with two samplers. {0} clean samples per batch".format(args.labeled_batch_size))
         batch_sampler = TwoStreamBatchSampler(unlabeled_indexes, labeled_indexes, args.batch_size, args.labeled_batch_size)
-        train_loader = torch.utils.data.DataLoader(trainset, batch_sampler=batch_sampler, num_workers=os.cpu_count(), pin_memory=True)
+        train_loader = torch.utils.data.DataLoader(trainset, batch_sampler=batch_sampler, num_workers=0, pin_memory=True)
     else:
         print(len(trainset))
-        train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=os.cpu_count(), pin_memory=True)
+        train_loader = torch.utils.data.DataLoader(trainset, batch_size=args.batch_size, shuffle=True, num_workers=0, pin_memory=True)
         print('train loader is ssl_warmup')
 
     if args.validation_exp == "True":
@@ -92,7 +92,7 @@ def data_config(args, transform_train, transform_test):
         testset = datasets.CIFAR10(root='./data', train=False, download=False, transform=transform_test)
         print("len of test set is ",len(testset))
 
-    test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, num_workers=os.cpu_count(), pin_memory=True)
+    test_loader = torch.utils.data.DataLoader(testset, batch_size=args.test_batch_size, shuffle=False, num_workers=0, pin_memory=True)
 
     # train and val
     print('-------> Data loading')
@@ -203,8 +203,8 @@ def main(args):
         # cd contrib
         # sudo python3 setup.py install
         from torchcontrib.optim import SWA
-        base_optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
-        optimizer = SWA(base_optimizer, swa_lr=args.swa_lr)
+        optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
+        swa_optimizer = SWA(optimizer, swa_lr=args.swa_lr, swa_start=args.swa_start, swa_freq=args.swa_freq)
 
     else:
         optimizer = optim.SGD(model.parameters(), lr=args.lr, momentum=args.momentum, weight_decay=args.wd)
@@ -252,7 +252,7 @@ def main(args):
         directory_path = './checkpoints/trades/mixup/'
 
         if not os.path.exists(directory_path):
-          os.makedirs(directory_path)
+            os.makedirs(directory_path)
 
 
         path = './checkpoints/trades/mixup/warmUp_{0}_{1}_{2}_{3}_{4}_{5}_S{6}.hdf5'.format(train_type, \
@@ -333,16 +333,14 @@ def main(args):
         acc_val_per_epoch += acc_val_per_epoch_i
 
 
-        writer.add_scalar('Loss/test', torch.tensor(loss_val_epoch[-1]), epoch)
-        writer.add_scalar('accuracy/test', torch.tensor(acc_val_per_epoch[-1]), epoch)
+        # writer.add_scalar('Loss/test', torch.tensor(loss_val_epoch[-1]), epoch)
+        # writer.add_scalar('accuracy/test', torch.tensor(acc_val_per_epoch[-1]), epoch)
 
 
         ####################################################################################################
         #############################               SAVING MODELS                ###########################
         ####################################################################################################
         checkpoints_dir = './checkpoints/trades/mixup'
-
-
         if not os.path.exists(checkpoints_dir):
             os.makedirs(checkpoints_dir, exist_ok=True)
 
@@ -429,9 +427,6 @@ def main(args):
         np.save(res_path + '/' + str(args.labeled_samples) + '_accuracy_per_epoch_train.npy',np.asarray(acc_train_per_epoch))
         np.save(res_path + '/' + str(args.labeled_samples) + '_accuracy_per_epoch_val.npy', np.asarray(acc_val_per_epoch))
 
-    # if args.dataset_type == 'ssl_warmUp':
-    writer.close()
-
     # applying swa
     if args.swa == 'True':
         optimizer.swap_swa_sgd()
@@ -440,6 +435,7 @@ def main(args):
             loss_swa, acc_val_swa = validating(args, model, device, test_loader)
         else:
             loss_swa, acc_val_swa = testing(args, model, device, test_loader)
+
         snapLast = 'last_epoch_%d_valLoss_%.5f_valAcc_%.5f_labels_%d_bestValLoss_%.5f_swaAcc_%.5f' % (
             epoch, loss_per_epoch_test[-1], acc_val_per_epoch_i[-1], args.labeled_samples, best_acc_val, acc_val_swa[0])
         torch.save(model.state_dict(), os.path.join(exp_path, snapLast + '.pth'))

@@ -58,20 +58,20 @@ class Cifar10Train(tv.datasets.CIFAR10):
         if train_indexes is not None:
             self.data = self.data[train_indexes]
             self.targets = np.array(self.targets)[train_indexes]
+            print('length of self.targets####', len(self.targets))
         self.soft_labels = np.zeros((len(self.targets), 10), dtype=np.float32)
         self._num = int(len(self.targets) - int(args.labeled_samples))
         #print("self._num is",self._num)
-        print("len of train_labels is ",int(len(self.targets)))
+        print("len of train_labels is ", int(len(self.targets)))
         print("len of args.labeled_samples",int(args.labeled_samples))
         self.original_labels = np.copy(self.targets)
         self.pslab_transform = pslab_transform
 
     def prepare_data_ssl(self):
         np.random.seed(self.args.seed)
-
+        
+    
         original_labels = np.copy(self.targets)
-        unlabeled_indexes = [] # initialize the vector
-        labeled_indexes = []
 
 
         num_unlab_samples = self._num
@@ -79,26 +79,46 @@ class Cifar10Train(tv.datasets.CIFAR10):
 
         labeled_per_class = int(num_labeled_samples / self.args.num_classes)
         unlab_per_class = int(num_unlab_samples / self.args.num_classes)
+        
+        labeled_indexes_loaded = np.load('checkpoint_paper/sampled_label_idx_4000.npy')
+        
+        unlabeled_indexes = []
+        labeled_indexes = []
 
         for id in range(self.args.num_classes):
+            
             indexes = np.where(original_labels == id)[0]
             np.random.shuffle(indexes)
-
+            
+            indexes_new = np.intersect1d(indexes, labeled_indexes_loaded)
+            
+            
+            labeled_indexes.extend(indexes_new)
+            
+            indexes_unlabeled = np.setdiff1d(indexes, indexes_new)
+            unlabeled_indexes.extend(indexes_unlabeled)
+            print('len of labelled indexs is', len(indexes_new))
+            print('len of unlabelled indexs is', len(indexes_unlabeled))
+            
             for i in range(len(indexes)):
-                if i < unlab_per_class:
+                if i < len(indexes_unlabeled):
                     label_sym = np.random.randint(self.args.num_classes, dtype=np.int32)
-                    self.targets[indexes[i]] = label_sym
+                    self.targets[indexes_unlabeled[i]] = label_sym
+                    # self.soft_labels[indexes_unlabeled[i]] = np.eye(self.args.num_classes)[label_sym]
+                    self.soft_labels[indexes_unlabeled[i]][self.targets[indexes_unlabeled[i]]] = 1
 
-                self.soft_labels[indexes[i]][self.targets[indexes[i]]] = 1
-
-            unlabeled_indexes.extend(indexes[:unlab_per_class])
-            labeled_indexes.extend(indexes[unlab_per_class:])
+                # self.soft_labels[indexes_unlabeled[i]][self.targets[indexes_unlabeled[i]]] = 1
+            for i in range(len(indexes_new)):
+                # self.soft_labels[indexes_new[i]] = np.eye(self.args.num_classes)[self.targets[indexes_new[i]]]
+                self.soft_labels[indexes_new[i]][self.targets[indexes_new[i]]] = 1
 
         return np.asarray(unlabeled_indexes),  np.asarray(labeled_indexes)
 
 
     def prepare_data_ssl_warmUp(self):
         np.random.seed(self.args.seed)
+        
+        labeled_indexes = np.load('checkpoint_paper/sampled_label_idx_4000.npy')
 
         original_labels = np.copy(self.targets)
         unlabeled_indexes = [] # initialize the vector
@@ -113,9 +133,11 @@ class Cifar10Train(tv.datasets.CIFAR10):
         for id in range(self.args.num_classes):
             indexes = np.where(original_labels == id)[0]
             np.random.shuffle(indexes)
+            indexes = np.intersect1d(indexes, labeled_indexes)
+            print('length of indexes is ##########',len(indexes))
 
-            unlabeled_indexes.extend(indexes[:unlab_per_class])
-            train_indexes.extend(indexes[unlab_per_class:])
+            # unlabeled_indexes.extend(indexes[:unlab_per_class])
+            train_indexes.extend(indexes[:])
 
         np.asarray(train_indexes)
         print('len of train_indexes in prepare_Data_Ssl',len(train_indexes))
