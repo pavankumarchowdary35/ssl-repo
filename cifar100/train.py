@@ -20,7 +20,7 @@ from utils_ssl import *
 
 from ssl_networks import CNN as MT_Net
 from PreResNet import PreactResNet18_WNdrop
-from wideArchitectures import WRN28_2_wn
+from wideArchitectures import WRN28_8_wn
 
 def parse_args():
     parser = argparse.ArgumentParser(description='command for the first train')
@@ -36,7 +36,7 @@ def parse_args():
     parser.add_argument('--reg1', type=float, default=0.8, help='Hyperparam for loss')
     parser.add_argument('--reg2', type=float, default=0.4, help='Hyperparam for loss')
     parser.add_argument('--download', type=bool, default=False, help='Download dataset')
-    parser.add_argument('--network', type=str, default='MT_Net', help='The backbone of the network')
+    parser.add_argument('--network', type=str, default='WRN28_8_wn', help='The backbone of the network')
     parser.add_argument('--seed', type=int, default=1, help='Random seed (default: 1)')
     parser.add_argument('--seed_val', type=int, default=1, help='Seed for the validation split')
     parser.add_argument('--M', action='append', type=int, default=[], help="Milestones for the LR sheduler")
@@ -157,6 +157,9 @@ def main(args):
     elif args.network == "WRN28_2_wn":
         print("Loading WRN28_2...")
         model = WRN28_2_wn(num_classes = args.num_classes, dropout = args.dropout).to(device)
+    elif args.network == "WRN28_8_wn":
+        print("Loading WRN28_8...")
+        model = WRN28_8_wn(num_classes = args.num_classes, dropout = args.dropout).to(device)
 
     elif args.network == "PreactResNet18_WNdrop":
         print("Loading preActResNet18_WNdrop...")
