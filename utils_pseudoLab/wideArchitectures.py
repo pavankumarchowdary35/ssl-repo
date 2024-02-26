@@ -90,6 +90,10 @@ def WRN28_5_wn(num_classes=10, dropout = 0.0):
     model = Wide_ResNet_WN(wide_WN, depth =28, widen_factor =5, dropout_rate = dropout, num_classes = num_classes)
     return model
 
+def WRN28_8_wn(num_classes=10, dropout = 0.0):
+    model = Wide_ResNet_WN(wide_WN, depth =28, widen_factor =8, dropout_rate = dropout, num_classes = num_classes)
+    return model
+
 
 if __name__ == '__main__':
     net=Wide_ResNet(28, 10, 0.3, 10)
