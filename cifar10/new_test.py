@@ -234,7 +234,7 @@ def test(model, test_loader, device):
     #test_attack = PGD_Linf(model=model, epsilon=8/255, step_size=(8/4)/255, num_steps=20, random_start='store_false', criterion='ce',bn_mode = 'eval', train = False)
     #test_attack = FGSM(model=model, epsilon=8/255)
     auto_attack = AutoAttack(model, norm='Linf', eps=8/255, version='standard', verbose=False)
-    auto_attack.attacks_to_run = ['apgd-ce', 'apgd-t']
+    auto_attack.attacks_to_run =  ['apgd-ce', 'apgd-t', 'fab', 'square']
     model.to(device)
     # _, pgd_test_acc = validate(test_loader, model, criterion, use_cuda = True, mode='PGD_attack', pgd_attack=test_attack)
     _, aa_test_acc  = validate(test_loader, model, criterion, use_cuda = True, mode='Autoattack', pgd_attack=None, autoattack=auto_attack)
