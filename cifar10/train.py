@@ -12,7 +12,7 @@ import argparse
 import os
 import time
 from torch.nn.parallel import DataParallel
-
+from collections import OrderedDict 
 SummaryWriter
 
 from dataset.cifar10 import get_dataset
@@ -30,7 +30,7 @@ import models_teacher.wideresnet as wrn_models
 def parse_args():
     parser = argparse.ArgumentParser(description='command for the first train')
     parser.add_argument('--lr', type=float, default=0.01, help='Learning rate')
-    parser.add_argument('--batch_size', type=int, default=200, help='Number of images in each mini-batch')
+    parser.add_argument('--batch_size', type=int, default=150, help='Number of images in each mini-batch')
     parser.add_argument('--test_batch_size', type=int, default=100, help='Number of images in each mini-batch')
     parser.add_argument('--epoch', type=int, default=150, help='Training epoches')
     parser.add_argument('--wd', type=float, default=1e-4, help='Weight decay')
@@ -57,7 +57,7 @@ def parse_args():
     parser.add_argument('--swa_start', type=int, default=75, help='Start SWA')
     parser.add_argument('--swa_freq', type=float, default=5, help='Frequency')
     parser.add_argument('--swa_lr', type=float, default=0.001, help='LR')
-    parser.add_argument('--labeled_batch_size', default=100, type=int, metavar='N', help="Labeled examples per minibatch (default: no constrain)")
+    parser.add_argument('--labeled_batch_size', default=75, type=int, metavar='N', help="Labeled examples per minibatch (default: no constrain)")
     parser.add_argument('--validation_exp', type=str, default='False', help='Ignore the testing set during training and evaluation (it gets 5k samples from the training data to do the validation step)')
     parser.add_argument('--val_samples', type=int, default=0, help='Number of samples to be kept for validation (from the training set))')
     parser.add_argument('--DA', type=str, default='standard', help='Chose the type of DA')
@@ -149,7 +149,7 @@ def main(args):
             transforms.RandomCrop(32),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(mean, std),
+            # transforms.Normalize(mean, std),
         ])
 
     elif args.DA == "jitter":
@@ -159,7 +159,7 @@ def main(args):
             transforms.RandomCrop(32),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
-            transforms.Normalize(mean, std),
+            # transforms.Normalize(mean, std),
         ])
     else:
         print("Wrong value for --DA argument.")
@@ -167,7 +167,7 @@ def main(args):
 
     transform_test = transforms.Compose([
         transforms.ToTensor(),
-        transforms.Normalize(mean, std),
+        # transforms.Normalize(mean, std),
     ])
 
     # data lodaer
@@ -182,6 +182,8 @@ def main(args):
     elif args.network == "WRN28_5_wn":
         print("Loading WRN28_2...")
         model = WRN28_5_wn(num_classes = args.num_classes, dropout = args.dropout).to(device)
+        print('#############################################################')
+        model_teacher = create_teacher_model()
 
     elif args.network == "PreactResNet18_WNdrop":
         print("Loading preActResNet18_WNdrop...")
@@ -263,18 +265,29 @@ def main(args):
                                                                                 args.network, \
                                                                                 args.seed)
         
-        # path = "./checkpoints/trades/mixup/warmUp_Mdrop1_1_40_cifar10_5000_MT_Net_S501.hdf5"
+        path_teacher = "checkpoint_paper/best.pth.tar"
 
-        print(path)
-            
+        print(path_teacher)
 
-
+        checkpoint_teacher = torch.load(path_teacher)
+        # new_state_dict = OrderedDict()
+        # for key, value in checkpoint_teacher['state_dict'].items():
+        #     new_key = "module." + key  # Add the prefix "module."
+        #     new_state_dict[new_key] = value
+        
+        
+        # model_teacher.load_state_dict(new_state_dict)
+        
+        model_teacher.load_state_dict(checkpoint_teacher['state_dict'])
+        model_teacher = model_teacher.to(device)
+        # print("Load model in epoch " + str(checkpoint['epoch']))
+        
         checkpoint = torch.load(path)
-        print("Load model in epoch " + str(checkpoint['epoch']))
         print("Path loaded: ", path)
         model.load_state_dict(checkpoint['state_dict'])
         print("Relabeling the unlabeled samples...")
-        model.eval()
+        
+        model_teacher.eval()
         results = np.zeros((len(train_loader.dataset), 10), dtype=np.float32)
         for images, images_pslab, labels, soft_labels, index in train_loader:
 
@@ -282,7 +295,7 @@ def main(args):
             labels = labels.to(device)
             soft_labels = soft_labels.to(device)
 
-            outputs = model(images)
+            outputs = model_teacher(images)
             prob, loss = loss_soft_reg_ep(outputs, labels, soft_labels, device, args)
             results[index.detach().numpy().tolist()] = prob.cpu().detach().numpy().tolist()
 
@@ -322,6 +335,7 @@ def main(args):
         if args.validation_exp == "True":
             loss_per_epoch_test, acc_val_per_epoch_i = validating(args, model, device, test_loader)
         else:
+            # loss_per_epoch_test, acc_val_per_epoch_i = testing(args, model, device, test_loader, epsilon= 8/255, num_steps=10, step_size= (8/4)/255)
             loss_per_epoch_test, acc_val_per_epoch_i = testing(args, model, device, test_loader)
 
         # if args.dataset_type == 'ssl_warmUp':
