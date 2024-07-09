@@ -1,30 +1,30 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
-# Load training and validation losses
-loss_train = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_LOSS_epoch_train.npy')
-loss_val = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_LOSS_epoch_val.npy')
+# Load the data
+natural_acc = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_Natural_accuracy_epoch_105.npy')
+robust_acc = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_Robust_accuracy_epoch_105.npy')
+loss = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_LOSS_epoch_train_epoch_105.npy')
 
-# Load training and validation accuracies
-acc_train = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_accuracy_per_epoch_train.npy')
-acc_val = np.load('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_accuracy_per_epoch_val.npy')
+# Create an array for the epochs
+epochs = np.arange(1, len(loss) + 1)
+
+# # Plot the natural and robust accuracy
+# plt.plot(epochs, natural_acc, color='blue', label='Natural Accuracy')
+# plt.plot(epochs, robust_acc, color='orange', label='Robust Accuracy')
+# plt.xlabel('Epochs')
+# plt.ylabel('Accuracy')
+# plt.title('Clean & Robust Accuracy')
+# plt.legend()  # Add legend to indicate the colors
+# plt.savefig('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_accu.png')
+# plt.show()
 
 
-plt.plot(loss_train, label='Training Loss')
-plt.plot(loss_val, label='Test Loss')
-plt.xlabel('Epoch')
+plt.plot(epochs, loss, color='green', label='Training Loss')
+plt.xlabel('Epochs')
 plt.ylabel('Loss')
-plt.title('Training and Test Loss')
+plt.title('Training Loss over Epochs')
 plt.legend()
-plt.savefig('loss_plot.png')  # Save plot to file
-plt.close()  # Close plot to prevent it from being displayed interactively
-
-# Plot training and validation accuracies
-plt.plot(acc_train, label='Training Accuracy')
-plt.plot(acc_val, label='Test Accuracy')
-plt.xlabel('Epoch')
-plt.ylabel('Accuracy')
-plt.title('Training and Test Accuracy')
-plt.legend()
-plt.savefig('accuracy_plot.png')  # Save plot to file
-plt.close() 
+plt.grid(True)
+plt.savefig('metrics_M_SOTA_CIFAR10/4000/trades_attack_wrn_seed_501/4000_loss.png')
+plt.show()
