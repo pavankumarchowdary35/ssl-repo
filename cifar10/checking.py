@@ -12,6 +12,7 @@ import argparse
 import os
 import time
 from torch.nn.parallel import DataParallel
+import numpy as np
 
 
 from dataset.cifar10 import get_dataset
@@ -69,6 +70,12 @@ print("Path loaded: ", path)
 testset = datasets.CIFAR10(root='./data', train=False, download=False, transform=transform_test)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=100, shuffle=False, num_workers=0, pin_memory=True)
 
+trainset = datasets.CIFAR10(root='./data', train=True, download=False, transform=transform_test)
+train_loader = torch.utils.data.DataLoader(trainset, batch_size=100, shuffle=False, num_workers=0, pin_memory=True)
+
+trainset_length = len(trainset)
+print("Length of the train set:", trainset_length)
+
 def calculate_accuracy(model, test_loader):
     model.eval()
     correct = 0
@@ -84,9 +91,39 @@ def calculate_accuracy(model, test_loader):
     accuracy = correct / total
     return accuracy
 
-# Usage
-accuracy_teacher = calculate_accuracy(model_teacher, test_loader)
-print("Accuracy of model_teacher on the test set: {:.2f}%".format(accuracy_teacher * 100))
+def calculate_accuracy_with_indices(model, data_loader):
+    model.eval()
+    incorrect_indices = []
+    correct = 0
+    total = 0
+    with torch.no_grad():
+        for idx, (images, labels) in enumerate(data_loader):
+            images = images
+            labels = labels
+            outputs = model(images)
+            _, predicted = torch.max(outputs, 1)
+            correct += (predicted == labels).sum().item()
+            total += labels.size(0)
+            # Append the indices of misclassified samples
+            incorrect_indices.extend(idx * data_loader.batch_size + i for i, (p, l) in enumerate(zip(predicted, labels)) if p != l)
+    accuracy = correct / total
+    return accuracy, incorrect_indices
 
-accuracy_model = calculate_accuracy(model, test_loader)
-print("Accuracy of model on the test set: {:.2f}%".format(accuracy_model * 100))
+
+
+# Usage
+accuracy_teacher,incorrect_indices  = calculate_accuracy_with_indices(model_teacher, train_loader)
+print("Accuracy of model_teacher on the train set: {:.2f}%".format(accuracy_teacher * 100))
+print(len(incorrect_indices))
+
+def store_indices_to_np(indices, file_path):
+    np.save(file_path, indices)
+
+# Usage
+file_path = "incorrect_indices.npy"
+store_indices_to_np(incorrect_indices, file_path)
+print("Incorrect prediction indices saved to:", file_path)
+
+
+# accuracy_model = calculate_accuracy_with_indices(model, train_loader)
+# print("Accuracy of model on the train set: {:.2f}%".format(accuracy_model * 100))

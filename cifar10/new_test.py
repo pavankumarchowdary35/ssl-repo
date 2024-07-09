@@ -201,6 +201,7 @@ def validate(valloader, model, criterion, use_cuda, mode, pgd_attack=None, autoa
 
         if use_cuda:
             inputs, targets = inputs.to(device), targets.to(device)
+            inputs.requires_grad = True
 
         if not autoattack and pgd_attack:
             adv_inputs, _ = pgd_attack.perturb(inputs, targets)
